@@ -1,12 +1,65 @@
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function CategoryDetailScreen() {
-  const { category } = useLocalSearchParams();
-  const router = useRouter();
+type CategoryData = {
+  strCategory: string;
+  strCategoryThumb: string;
+  strCategoryDescription: string;
+};
 
-  if (!category) {
+export default function CategoryDetailScreen() {
+  const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const rawCategory = Array.isArray(params.category) ? params.category[0] : params.category;
+  const router = useRouter();
+  const [categoryData, setCategoryData] = useState<CategoryData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!rawCategory) {
+      setLoading(false);
+      return;
+    }
+    let parsed: CategoryData | null = null;
+    try {
+      parsed = JSON.parse(rawCategory as string) as CategoryData;
+      if (parsed && typeof parsed.strCategory === 'string') {
+        setCategoryData(parsed);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Not JSON – treat as category name and fetch from API
+    }
+    const categoryName = typeof rawCategory === 'string' ? rawCategory : '';
+    if (!categoryName) {
+      setLoading(false);
+      return;
+    }
+    fetch(`https://www.themealdb.com/api/json/v1/1/categories.php`)
+      .then((res) => res.json())
+      .then((json) => {
+        const list = json.categories || [];
+        const found = list.find((c: CategoryData) => c.strCategory === categoryName);
+        setCategoryData(found || {
+          strCategory: categoryName,
+          strCategoryThumb: '',
+          strCategoryDescription: 'No description available.',
+        });
+      })
+      .catch(() => {
+        setCategoryData({
+          strCategory: categoryName,
+          strCategoryThumb: '',
+          strCategoryDescription: 'No description available.',
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [rawCategory]);
+
+  if (!rawCategory) {
     return (
       <View style={styles.container}>
         <Text>No category found</Text>
@@ -14,7 +67,21 @@ export default function CategoryDetailScreen() {
     );
   }
 
-  const categoryData = JSON.parse(category as string);
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#d4a574" />
+      </View>
+    );
+  }
+
+  if (!categoryData) {
+    return (
+      <View style={styles.container}>
+        <Text>No category found</Text>
+      </View>
+    );
+  }
 
   const handleExploreCategory = () => {
     router.push({
@@ -29,6 +96,8 @@ export default function CategoryDetailScreen() {
         <Image
           source={{ uri: categoryData.strCategoryThumb }}
           style={styles.image}
+          contentFit="cover"
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
         />
         <TouchableOpacity 
           style={styles.backButton}

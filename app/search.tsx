@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { View, Text, TextInput, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -17,8 +18,10 @@ export default function SearchScreen() {
   const [searched, setSearched] = useState(false);
   const [searchCache, setSearchCache] = useState<Record<string, Meal[]>>({});
   const router = useRouter();
+  const searchCacheRef = useRef<Record<string, Meal[]>>({});
+  searchCacheRef.current = searchCache;
 
-  const searchMeals = async (query: string) => {
+  const searchMeals = useCallback(async (query: string) => {
     const normalized = query.trim().toLowerCase();
 
     if (!normalized) {
@@ -27,9 +30,8 @@ export default function SearchScreen() {
       return;
     }
 
-    // If we already have cached results for this query, use them
-    if (searchCache[normalized]) {
-      setMeals(searchCache[normalized]);
+    if (searchCacheRef.current[normalized]) {
+      setMeals(searchCacheRef.current[normalized]);
       setSearched(true);
       return;
     }
@@ -38,7 +40,7 @@ export default function SearchScreen() {
       setLoading(true);
       setSearched(true);
       const res = await fetch(
-        `https://www.themealdb.com/api/json/v1/1/search.php?s=${normalized}`
+        `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(normalized)}`
       );
       const json = await res.json();
       const fetchedMeals: Meal[] = json.meals || [];
@@ -52,9 +54,11 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSearch = (text: string) => {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
 
     const trimmed = text.trim();
@@ -62,12 +66,19 @@ export default function SearchScreen() {
     if (!trimmed) {
       setMeals([]);
       setSearched(false);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       return;
     }
 
-    // Trigger search for any non-empty query
-    searchMeals(trimmed);
-  };
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      searchMeals(trimmed);
+    }, 400);
+  }, [searchMeals]);
 
   return (
     <View style={styles.container}>
@@ -115,6 +126,10 @@ export default function SearchScreen() {
         <FlatList
           data={meals}
           keyExtractor={(item) => item.idMeal}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
           renderItem={({ item }: { item: Meal }) => (
             <TouchableOpacity
               style={styles.resultCard}
@@ -127,6 +142,8 @@ export default function SearchScreen() {
               <Image
                 source={{ uri: item.strMealThumb }}
                 style={styles.resultImage}
+                contentFit="cover"
+                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
               />
               <View style={styles.resultContent}>
                 <Text style={styles.resultName}>{item.strMeal}</Text>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,7 +16,8 @@ interface MealDetail {
 }
 
 export default function MealDetailScreen() {
-  const { mealId } = useLocalSearchParams();
+  const params = useLocalSearchParams<{ mealId?: string | string[] }>();
+  const mealId = Array.isArray(params.mealId) ? params.mealId[0] : params.mealId;
   const router = useRouter();
   const [meal, setMeal] = useState<MealDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,14 +25,17 @@ export default function MealDetailScreen() {
   useEffect(() => {
     if (mealId) {
       fetchMealDetails();
+    } else {
+      setLoading(false);
     }
   }, [mealId]);
 
   const fetchMealDetails = async () => {
+    if (!mealId) return;
     try {
       setLoading(true);
       const res = await fetch(
-        `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`
+        `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(mealId)}`
       );
       const json = await res.json();
       if (json.meals && json.meals.length > 0) {
@@ -56,6 +61,14 @@ export default function MealDetailScreen() {
     return ingredients;
   };
 
+  if (!mealId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No meal selected.</Text>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -77,7 +90,12 @@ export default function MealDetailScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.imageContainer}>
-        <Image source={{ uri: meal.strMealThumb }} style={styles.image} />
+        <Image
+          source={{ uri: meal.strMealThumb }}
+          style={styles.image}
+          contentFit="cover"
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+        />
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}

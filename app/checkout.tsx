@@ -43,7 +43,11 @@ export default function CheckoutScreen() {
           </View>
         )}
         onError={() => {
-          // If something goes wrong loading the Stripe page, show a simple message instead of a blank screen.
+          Alert.alert(
+            'Could not load checkout',
+            'The payment page failed to load. Please check your connection and try again.',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
         }}
       />
     </View>

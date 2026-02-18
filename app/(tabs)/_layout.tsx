@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function TabsLayout() {
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         tabBarStyle: {
           backgroundColor: '#fff',
@@ -28,6 +29,16 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="home" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="categories"
         options={{
           title: 'Categories',
@@ -46,6 +57,10 @@ export default function TabsLayout() {
             <Ionicons name="nutrition-outline" size={24} color={color} />
           ),
         }}
+      />
+      <Tabs.Screen
+        name="details"
+        options={{ href: null }}
       />
     </Tabs>
   );

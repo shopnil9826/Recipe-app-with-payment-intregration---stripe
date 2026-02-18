@@ -1,25 +1,36 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+type Meal = {
+  idMeal: string;
+  strMeal: string;
+  strMealThumb: string;
+  strCategory?: string;
+};
+
 export default function MealsScreen() {
-  const { category } = useLocalSearchParams();
+  const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const category = Array.isArray(params.category) ? params.category[0] : params.category;
   const router = useRouter();
-  const [meals, setMeals] = useState([]);
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (category) {
-      fetchMeals();
+      fetchMeals(category);
+    } else {
+      setLoading(false);
     }
   }, [category]);
 
-  const fetchMeals = async () => {
+  const fetchMeals = async (categoryName: string) => {
     try {
       setLoading(true);
       const res = await fetch(
-        `https://www.themealdb.com/api/json/v1/1/filter.php?c=${category}`
+        `https://www.themealdb.com/api/json/v1/1/filter.php?c=${encodeURIComponent(categoryName)}`
       );
       const json = await res.json();
       setMeals(json.meals || []);
@@ -29,6 +40,17 @@ export default function MealsScreen() {
       setLoading(false);
     }
   };
+
+  if (!category) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>No category selected.</Text>
+        <TouchableOpacity style={styles.backOnly} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#2d1810" />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -54,6 +76,10 @@ export default function MealsScreen() {
         keyExtractor={(item) => item.idMeal}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={true}
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.mealCard}
@@ -66,6 +92,8 @@ export default function MealsScreen() {
             <Image
               source={{ uri: item.strMealThumb }}
               style={styles.mealImage}
+              contentFit="cover"
+              placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
             />
             <Text style={styles.mealName} numberOfLines={2}>{item.strMeal}</Text>
           </TouchableOpacity>
@@ -90,6 +118,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#7a6a5e',
+  },
+  backOnly: {
+    marginTop: 16,
   },
   header: {
     flexDirection: 'row',

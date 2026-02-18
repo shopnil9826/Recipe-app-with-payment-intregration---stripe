@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,6 +13,7 @@ type Category = {
 
 export default function CategoriesScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,12 +21,26 @@ export default function CategoriesScreen() {
   }, []);
 
   const fetchCategories = async () => {
-    const res = await fetch(
-      'https://www.themealdb.com/api/json/v1/1/categories.php'
-    );
-    const json = await res.json();
-    setCategories(json.categories);
+    try {
+      setLoading(true);
+      const res = await fetch(
+        'https://www.themealdb.com/api/json/v1/1/categories.php'
+      );
+      const json = await res.json();
+      setCategories(json.categories || []);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#d4a574" />
+        <Text style={styles.loadingText}>Loading categories...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -44,6 +60,10 @@ export default function CategoriesScreen() {
       <FlatList
         data={categories}
         keyExtractor={(item: Category) => item.idCategory}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews={true}
         renderItem={({ item }: { item: Category }) => (
           <TouchableOpacity 
             style={styles.card}
@@ -55,8 +75,10 @@ export default function CategoriesScreen() {
           >
             <View style={styles.imageWrapper}>
               <Image
-                source={{ uri: item.strCategoryThumb}}
+                source={{ uri: item.strCategoryThumb }}
                 style={styles.image}
+                contentFit="cover"
+                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
               />
               <View style={styles.overlay} />
             </View>
@@ -81,6 +103,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff8f3',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#7a6a5e',
   },
   header: {
     paddingHorizontal: 20,
